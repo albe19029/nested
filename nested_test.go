@@ -306,6 +306,38 @@ func TestWalk(t *testing.T) {
 	}
 }
 
+var walkTestsByString = []struct {
+	name string
+	in   Nested
+	out  map[string]interface{}
+}{
+	{"first", Nested{"a": 1}, map[string]interface{}{}},
+	{"first2", Nested{"a": map[string]interface{}{"b": 1}}, map[string]interface{}{}},
+	{"second", Nested{"a": map[string]interface{}{"b": map[string]interface{}{"c": 1, "d": true}}}, map[string]interface{}{"a.b.c": 1, "a.b.d": true}},
+	{"second2", Nested{"a": map[string]interface{}{"e": map[string]interface{}{"c": 1, "d": true}}}, map[string]interface{}{}},
+	{"third", Nested{"a": map[string]interface{}{"b": map[string]interface{}{"c": 1, "d": map[string]interface{}{"e": true}}}}, map[string]interface{}{"a.b.c": 1, "a.b.d.e": true, "a.b.d": map[string]interface{}{"e": true}}},
+}
+
+func TestWalkByString(t *testing.T) {
+	sep := "/"
+	for _, tt := range walkTestsByString {
+		walkResults := map[string]interface{}{}
+
+		walkFn := func(keys []string, value interface{}) error {
+			key := strings.Join(keys, ".")
+			walkResults[key] = value
+			return nil
+		}
+
+		t.Run(tt.name, func(t *testing.T) {
+			tt.in.WalkByString("a/b", sep, walkFn)
+			if !reflect.DeepEqual(walkResults, tt.out) {
+				t.Errorf("got %v, want %v", walkResults, tt.out)
+			}
+		})
+	}
+}
+
 var walkSkipTests = []struct {
 	name string
 	in   Nested
@@ -334,6 +366,42 @@ func TestSkipWalk(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 			tt.in.Walk(walkFn)
+			if !reflect.DeepEqual(walkResults, tt.out) {
+				t.Errorf("got %v, want %v", walkResults, tt.out)
+			}
+		})
+	}
+}
+
+var walkSkipTestsByString = []struct {
+	name string
+	in   Nested
+	out  map[string]interface{}
+}{
+	{"first", Nested{"a": 1}, map[string]interface{}{}},
+	{"first2", Nested{"a": map[string]interface{}{"b": 1}}, map[string]interface{}{}},
+	{"second", Nested{"a": map[string]interface{}{"b": map[string]interface{}{"c": 1, "d": true}}}, map[string]interface{}{"a.b.c": 1}},
+	{"second2", Nested{"a": map[string]interface{}{"e": map[string]interface{}{"c": 1, "d": true}}}, map[string]interface{}{}},
+	{"third", Nested{"a": map[string]interface{}{"b": map[string]interface{}{"c": 1, "d": map[string]interface{}{"e": true}}}}, map[string]interface{}{"a.b.c": 1}},
+}
+
+func TestSkipWalkByString(t *testing.T) {
+	sep := "/"
+	for _, tt := range walkSkipTestsByString {
+		walkResults := map[string]interface{}{}
+
+		walkFn := func(keys []string, value interface{}) error {
+			key := strings.Join(keys, ".")
+			if key == "a.b.d" {
+				return SkipKey
+
+			}
+			walkResults[key] = value
+			return nil
+		}
+
+		t.Run(tt.name, func(t *testing.T) {
+			tt.in.WalkByString("a/b", sep, walkFn)
 			if !reflect.DeepEqual(walkResults, tt.out) {
 				t.Errorf("got %v, want %v", walkResults, tt.out)
 			}
