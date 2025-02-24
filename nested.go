@@ -144,6 +144,35 @@ func (n Nested) Walk(walkFn WalkFunc) error {
 	return nil
 }
 
+func (n Nested) WalkByKeys(keys []string, walkFn WalkFunc) error {
+	m := n
+	for _, k := range keys {
+		value, ok := m[k]
+		if !ok {
+			return ErrNoSuchKey
+		}
+
+		m, ok = value.(map[string]interface{})
+		if !ok {
+			return ErrNoSuchKey
+		}
+	}
+	for k, v := range m {
+		err := walk(append(keys, k), v, walkFn)
+		if err == SkipKey {
+			continue
+		} else if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (n Nested) WalkByString(key, sep string, walkFn WalkFunc) error {
+	key = strings.TrimPrefix(key, sep)
+	return n.WalkByKeys(strings.Split(key, sep), walkFn)
+}
+
 func walk(keys []string, value interface{}, walkFn WalkFunc) error {
 	err := walkFn(keys, value)
 	if err == SkipKey {
